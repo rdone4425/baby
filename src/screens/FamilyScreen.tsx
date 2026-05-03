@@ -3,11 +3,13 @@ import { StyleSheet, Text, View } from "react-native";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { Field } from "../components/Field";
+import { PanelHeader } from "../components/PanelHeader";
+import { StatPill } from "../components/StatPill";
 import { Copy } from "../i18n/types";
 import { AgentRecommendation } from "../types/agent";
 import { FamilyTask, Locale } from "../types/domain";
 import { formatDateTime } from "../utils/date";
-import { palette } from "../theme/tokens";
+import { palette, spacing } from "../theme/tokens";
 
 type Props = {
   copy: Copy;
@@ -26,16 +28,20 @@ export function FamilyScreen({ copy, locale, tasks, recommendation, onSaveTask }
     () => recommendation?.description || copy.agent.familyHint,
     [recommendation, copy.agent.familyHint]
   );
+  const openTasks = tasks.filter((task) => task.status !== "done").length;
 
   return (
     <View style={styles.stack}>
       <Card tone="info">
-        <Text style={styles.cardTitle}>{copy.family.title}</Text>
-        <Text style={styles.cardBody}>{familyHint}</Text>
+        <PanelHeader eyebrow="Family Flow" title={copy.family.title} description={familyHint} />
+        <View style={styles.metrics}>
+          <StatPill label="Open" value={`${openTasks}`} tone="warm" />
+          <StatPill label="Total" value={`${tasks.length}`} />
+        </View>
       </Card>
 
       <Card tone="default">
-        <Text style={styles.cardTitle}>{copy.family.title}</Text>
+        <PanelHeader eyebrow="Board" title={copy.family.title} description="Shared responsibilities for the week." />
         {tasks.length === 0 ? (
           <Text style={styles.cardBody}>{copy.family.empty}</Text>
         ) : (
@@ -55,7 +61,7 @@ export function FamilyScreen({ copy, locale, tasks, recommendation, onSaveTask }
       </Card>
 
       <Card tone="default">
-        <Text style={styles.cardTitle}>{copy.family.formTitle}</Text>
+        <PanelHeader eyebrow="Assign" title={copy.family.formTitle} />
         <Field label={copy.family.assignee} value={assigneeName} onChangeText={setAssigneeName} />
         <Field label={copy.family.task} value={title} onChangeText={setTitle} />
         <Field label={copy.family.dueAt} value={dueAt} onChangeText={setDueAt} />
@@ -75,7 +81,7 @@ export function FamilyScreen({ copy, locale, tasks, recommendation, onSaveTask }
 
 const styles = StyleSheet.create({
   stack: {
-    gap: 14
+    gap: spacing.md
   },
   cardTitle: {
     color: palette.ink,
@@ -91,7 +97,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: 12,
+    gap: spacing.md,
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: palette.line
@@ -115,5 +121,10 @@ const styles = StyleSheet.create({
     color: palette.ink,
     fontSize: 12,
     fontWeight: "700"
+  },
+  metrics: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm
   }
 });

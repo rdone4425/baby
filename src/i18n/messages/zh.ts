@@ -3,8 +3,10 @@ import { Copy } from "../types";
 export const zh: Copy = {
   languageLabel: "语言",
   languageOptions: {
-    en: "EN",
-    zh: "中文"
+    en: "English",
+    zh: "中文",
+    es: "Español",
+    ja: "日本語"
   },
   heroBadge: "宝宝每周陪伴助手",
   heroTitle: "给新手爸妈更从容的育儿规划 App。",
@@ -62,6 +64,14 @@ export const zh: Copy = {
     title: "宝宝档案",
     emptyTitle: "先创建一个宝宝档案",
     emptyBody: "创建档案后，系统才能根据月龄生成提醒、规划和外出默认建议。",
+    languageTitle: "先确认语言",
+    languageHint: "在选择国家之前，先确认界面语言，让后续问询和填写都更自然。",
+    locationTitle: "再确认国家和地区",
+    locationHint: "我们会先确认国家、地区和街道，再继续后面的资料填写。",
+    locationContinue: "继续填写档案",
+    country: "国家",
+    region: "地区 / 区县",
+    street: "街道 / 小区",
     name: "宝宝昵称",
     birthDate: "出生日期（YYYY-MM-DD）",
     feedingMode: "喂养方式",
@@ -72,7 +82,7 @@ export const zh: Copy = {
       breast: "母乳",
       formula: "奶粉",
       mixed: "混合喂养",
-      solids: "已开始辅食"
+      solids: "已添加辅食"
     }
   },
   today: {
@@ -114,12 +124,21 @@ export const zh: Copy = {
   },
   family: {
     title: "照护协作",
-    empty: "还没有共享任务。先加一个任务，让交接更清楚。",
+    empty: "还没有共享任务。先加一个任务，让交接更清晰。",
     formTitle: "添加家庭任务",
     assignee: "负责人",
     task: "任务内容",
     dueAt: "截止时间（YYYY-MM-DDTHH:MM）",
     save: "保存任务"
+  },
+  vaccinations: {
+    title: "附近的疫苗站",
+    eyebrow: "围绕你的街道",
+    helper: "按距离排序，给出步行或短途交通可达的疫苗接种点。",
+    emptyAddress: "在「档案」里填写你的街道，就能看到附近的疫苗站。",
+    distanceLabel: "距离",
+    hoursLabel: "营业时间",
+    sampleBadge: "示例数据"
   },
   generic: {
     loading: "加载中...",

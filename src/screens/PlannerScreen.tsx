@@ -3,11 +3,13 @@ import { StyleSheet, Text, View } from "react-native";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { Field } from "../components/Field";
+import { PanelHeader } from "../components/PanelHeader";
+import { StatPill } from "../components/StatPill";
 import { Copy } from "../i18n/types";
 import { AgentRecommendation } from "../types/agent";
 import { Locale, Reminder, WeeklyPlanItem } from "../types/domain";
 import { formatDateTime } from "../utils/date";
-import { palette } from "../theme/tokens";
+import { palette, spacing } from "../theme/tokens";
 
 type Props = {
   copy: Copy;
@@ -49,13 +51,20 @@ export function PlannerScreen({
   return (
     <View style={styles.stack}>
       <Card tone="info">
-        <Text style={styles.cardTitle}>{copy.agent.title}</Text>
-        <Text style={styles.cardBody}>{recommendationSummary || copy.agent.plannerHint}</Text>
-        <Button label={copy.agent.refresh} onPress={onRefreshAgent} disabled={isAgentRunning} />
+        <PanelHeader
+          eyebrow="Planner Brief"
+          title={copy.agent.title}
+          description={recommendationSummary || copy.agent.plannerHint}
+          action={<Button label={copy.agent.refresh} onPress={onRefreshAgent} disabled={isAgentRunning} />}
+        />
+        <View style={styles.metrics}>
+          <StatPill label="Week items" value={`${weeklyPlan.length}`} tone="cool" />
+          <StatPill label="Reminders" value={`${reminders.length}`} />
+        </View>
       </Card>
 
       <Card tone="default">
-        <Text style={styles.cardTitle}>{copy.planner.title}</Text>
+        <PanelHeader eyebrow="Timeline" title={copy.planner.title} description={copy.planner.nextActionTitle} />
         {weeklyPlan.length === 0 ? (
           <Text style={styles.cardBody}>{copy.today.empty}</Text>
         ) : (
@@ -72,12 +81,11 @@ export function PlannerScreen({
       </Card>
 
       <Card tone="info">
-        <Text style={styles.cardTitle}>{copy.planner.nextActionTitle}</Text>
-        <Text style={styles.cardBody}>{nextAction}</Text>
+        <PanelHeader eyebrow="Next" title={copy.planner.nextActionTitle} description={nextAction} />
       </Card>
 
       <Card tone="default">
-        <Text style={styles.cardTitle}>{copy.planner.remindersTitle}</Text>
+        <PanelHeader eyebrow="Queue" title={copy.planner.remindersTitle} />
         {reminders.length === 0 ? (
           <Text style={styles.cardBody}>{copy.today.empty}</Text>
         ) : (
@@ -91,7 +99,7 @@ export function PlannerScreen({
       </Card>
 
       <Card tone="default">
-        <Text style={styles.cardTitle}>{copy.planner.appointmentFormTitle}</Text>
+        <PanelHeader eyebrow="Create" title={copy.planner.appointmentFormTitle} />
         <Field label={copy.planner.appointmentFields.title} value={appointmentTitle} onChangeText={setAppointmentTitle} />
         <Field label={copy.planner.appointmentFields.startsAt} value={appointmentStartsAt} onChangeText={setAppointmentStartsAt} />
         <Field label={copy.planner.appointmentFields.location} value={appointmentLocation} onChangeText={setAppointmentLocation} />
@@ -114,7 +122,7 @@ export function PlannerScreen({
       </Card>
 
       <Card tone="default">
-        <Text style={styles.cardTitle}>{copy.planner.reminderFormTitle}</Text>
+        <PanelHeader eyebrow="Create" title={copy.planner.reminderFormTitle} />
         <Field label={copy.planner.reminderFields.title} value={reminderTitle} onChangeText={setReminderTitle} />
         <Field label={copy.planner.reminderFields.dueAt} value={reminderDueAt} onChangeText={setReminderDueAt} />
         <Button
@@ -132,7 +140,7 @@ export function PlannerScreen({
 
 const styles = StyleSheet.create({
   stack: {
-    gap: 14
+    gap: spacing.md
   },
   cardTitle: {
     color: palette.ink,
@@ -146,7 +154,7 @@ const styles = StyleSheet.create({
   },
   timelineRow: {
     flexDirection: "row",
-    gap: 12
+    gap: spacing.md
   },
   timelineDay: {
     width: 46,
@@ -167,5 +175,10 @@ const styles = StyleSheet.create({
   },
   reminderRow: {
     gap: 4
+  },
+  metrics: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm
   }
 });

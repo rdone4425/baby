@@ -3,8 +3,10 @@ import { Copy } from "../types";
 export const en: Copy = {
   languageLabel: "Language",
   languageOptions: {
-    en: "EN",
-    zh: "中文"
+    en: "English",
+    zh: "中文",
+    es: "Español",
+    ja: "日本語"
   },
   heroBadge: "Baby Weekly Companion",
   heroTitle: "A calmer planning app for new parents.",
@@ -64,6 +66,14 @@ export const en: Copy = {
     title: "Baby profile",
     emptyTitle: "Start with one baby profile",
     emptyBody: "Create the baby profile once and the rest of the app can derive age-stage guidance, planning, and outing defaults.",
+    languageTitle: "First, choose your language",
+    languageHint: "Confirm the interface language before choosing your country, so the rest of onboarding feels natural.",
+    locationTitle: "Now confirm your area",
+    locationHint: "We follow a question-led flow: country, region, and street before the rest of the profile.",
+    locationContinue: "Continue to profile",
+    country: "Country",
+    region: "Region / district",
+    street: "Street / neighborhood",
     name: "Baby name",
     birthDate: "Birth date (YYYY-MM-DD)",
     feedingMode: "Feeding mode",
@@ -122,6 +132,15 @@ export const en: Copy = {
     task: "Task",
     dueAt: "Due at (YYYY-MM-DDTHH:MM)",
     save: "Save task"
+  },
+  vaccinations: {
+    title: "Nearby vaccination stations",
+    eyebrow: "Around your street",
+    helper: "Suggested clinics within walking and short transit distance, ranked by proximity.",
+    emptyAddress: "Add your street under Profile to see nearby vaccination stations.",
+    distanceLabel: "Distance",
+    hoursLabel: "Hours",
+    sampleBadge: "Sample data"
   },
   generic: {
     loading: "Loading...",

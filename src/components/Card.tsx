@@ -1,13 +1,14 @@
 import React, { PropsWithChildren } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleProp, StyleSheet, View, ViewStyle } from "react-native";
 import { palette, radius } from "../theme/tokens";
 
 type Props = PropsWithChildren<{
   tone?: "default" | "accent" | "info" | "calm";
+  style?: StyleProp<ViewStyle>;
 }>;
 
-export function Card({ children, tone = "default" }: Props) {
-  return <View style={[styles.base, toneStyle[tone]]}>{children}</View>;
+export function Card({ children, tone = "default", style }: Props) {
+  return <View style={[styles.base, toneStyle[tone], style]}>{children}</View>;
 }
 
 const toneStyle = StyleSheet.create({

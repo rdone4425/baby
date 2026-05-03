@@ -22,6 +22,7 @@ export type OutingContext = {
 export type AppRepository = {
   mode: "mock" | "supabase";
   getCurrentUser(): Promise<ServiceResult<User>>;
+  saveUserLocation(input: Pick<User, "country" | "region" | "street">): Promise<ServiceResult<User>>;
   requestMagicLink(email: string): Promise<ServiceResult<void>>;
   getDashboardData(): Promise<ServiceResult<DashboardData>>;
   getAgentState(): Promise<ServiceResult<{ memory: AgentMemory; latestRun: AgentRun | null }>>;

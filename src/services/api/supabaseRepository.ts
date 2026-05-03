@@ -14,6 +14,9 @@ export function createSupabaseRepository(): AppRepository {
     async getCurrentUser() {
       return { ok: false, error: "Supabase repository is not wired in this build yet." };
     },
+    async saveUserLocation() {
+      return { ok: false, error: "Supabase repository is not wired in this build yet." };
+    },
     async requestMagicLink() {
       return { ok: false, error: "Supabase repository is not wired in this build yet." };
     },

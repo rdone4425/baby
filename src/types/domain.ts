@@ -1,4 +1,4 @@
-export type Locale = "en" | "zh";
+export type Locale = "en" | "zh" | "es" | "ja";
 
 export type TabKey = "today" | "planner" | "outings" | "family";
 
@@ -30,11 +30,17 @@ export type User = {
   id: string;
   email: string;
   name: string;
+  country: string;
+  region: string;
+  street: string;
 };
 
 export type BabyProfile = {
   id: string;
   userId: string;
+  country: string;
+  region: string;
+  street: string;
   name: string;
   birthDate: string;
   feedingMode: FeedingMode;
@@ -97,4 +103,12 @@ export type DashboardData = {
   reminders: Reminder[];
   familyTasks: FamilyTask[];
   todayItems: TodayItem[];
+};
+
+export type VaccineStation = {
+  id: string;
+  name: string;
+  distanceLabel: string;
+  addressLine: string;
+  hours: string;
 };

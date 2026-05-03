@@ -10,13 +10,12 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import * as Updates from "expo-updates";
 import { buildAgentObservation } from "./src/agent/buildObservation";
 import { createEmptyAgentMemory } from "./src/agent/memory";
+import { LocationGate, LocationDraft } from "./src/components/LocationGate";
 import { SectionHeader } from "./src/components/SectionHeader";
 import { TabBar } from "./src/components/TabBar";
-import { copyByLocale, detectInitialLocale } from "./src/i18n";
+import { copyByLocale, detectInitialLocale, loadStoredLocale, savePreferredLocale } from "./src/i18n";
 import { createAppRepository } from "./src/services/api";
 import { AppRepository } from "./src/services/api/types";
 import { FamilyScreen } from "./src/screens/FamilyScreen";
@@ -38,25 +37,19 @@ import {
 } from "./src/types/domain";
 import { LoadState } from "./src/types/service";
 import { buildOutingChecklist, deriveNextAction, deriveWeeklyPlan } from "./src/features/dashboard/deriveDashboard";
+import { saveUserMemoryLocation } from "./src/storage/agentDocuments";
 import { createId } from "./src/utils/id";
 
 const repository: AppRepository = createAppRepository();
-
-type UpdateStatus =
-  | "idle"
-  | "checking"
-  | "downloading"
-  | "applying"
-  | "unavailableDev"
-  | "unavailableConfig"
-  | "upToDate"
-  | "failed";
 
 const emptyDashboard: DashboardData = {
   user: {
     id: "unknown",
     email: "",
-    name: ""
+    name: "",
+    country: "",
+    region: "",
+    street: ""
   },
   mode: repository.mode,
   babyProfile: null,
@@ -80,8 +73,12 @@ export default function App() {
   const [agentMemory, setAgentMemory] = useState<AgentMemory>(createEmptyAgentMemory());
   const [latestAgentRun, setLatestAgentRun] = useState<AgentRun | null>(null);
   const [isAgentRunning, setIsAgentRunning] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>("idle");
+  const [locationDraft, setLocationDraft] = useState<LocationDraft>({
+    country: "",
+    region: "",
+    street: ""
+  });
+  const [locationConfirmed, setLocationConfirmed] = useState(false);
 
   const copy = copyByLocale[locale];
   const todayRecommendations = useMemo(
@@ -106,9 +103,34 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    void (async () => {
+      const storedLocale = await loadStoredLocale();
+      if (storedLocale) {
+        setLocale(storedLocale);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
     setWeeklyPlan(deriveWeeklyPlan(locale, dashboard.appointments, dashboard.reminders, dashboard.familyTasks));
     setOutingChecklist(buildOutingChecklist(locale, outingScenario, dashboard.babyProfile));
   }, [dashboard, locale, outingScenario]);
+
+  useEffect(() => {
+    if (!dashboard.babyProfile) {
+      return;
+    }
+
+    const nextDraft = {
+      country: dashboard.babyProfile.country,
+      region: dashboard.babyProfile.region,
+      street: dashboard.babyProfile.street
+    };
+    setLocationDraft(nextDraft);
+    if (nextDraft.country && nextDraft.region && nextDraft.street) {
+      setLocationConfirmed(true);
+    }
+  }, [dashboard.babyProfile]);
 
   useEffect(() => {
     if (dashboard.user.id === "unknown") {
@@ -163,6 +185,9 @@ export default function App() {
   }
 
   async function handleSaveBabyProfile(input: {
+    country: string;
+    region: string;
+    street: string;
     name: string;
     birthDate: string;
     feedingMode: FeedingMode;
@@ -175,6 +200,18 @@ export default function App() {
     }
     Alert.alert(copy.generic.saveSucceeded);
     await refresh("profile_saved");
+  }
+
+  async function handleConfirmLocation(value: LocationDraft) {
+    setLocationDraft(value);
+    setLocationConfirmed(true);
+    await repository.saveUserLocation(value);
+    await saveUserMemoryLocation({ ...value, preferredLocale: locale });
+  }
+
+  async function handleLocaleChange(nextLocale: Locale) {
+    setLocale(nextLocale);
+    await savePreferredLocale(nextLocale);
   }
 
   async function handleSaveAppointment(input: Omit<Appointment, "id" | "userId" | "babyId" | "category">) {
@@ -221,15 +258,6 @@ export default function App() {
     }
   }
 
-  async function handleRequestMagicLink(email: string) {
-    const result = await repository.requestMagicLink(email);
-    if (!result.ok) {
-      Alert.alert(copy.generic.errorPrefix, result.error ?? copy.generic.magicLinkUnavailable);
-      return;
-    }
-    Alert.alert(copy.generic.saveSucceeded);
-  }
-
   async function recordImplicitFeedback(
     kind: AgentRecommendation["kind"],
     note: string,
@@ -271,85 +299,41 @@ export default function App() {
     await runAgent("manual_refresh", dashboard);
   }
 
-  async function handleCheckForUpdates() {
-    if (isUpdating) {
-      return;
-    }
-
-    if (__DEV__) {
-      setUpdateStatus("unavailableDev");
-      return;
-    }
-
-    if (!Updates.isEnabled) {
-      setUpdateStatus("unavailableConfig");
-      return;
-    }
-
-    try {
-      setIsUpdating(true);
-      setUpdateStatus("checking");
-      const result = await Updates.checkForUpdateAsync();
-      if (!result.isAvailable) {
-        setUpdateStatus("upToDate");
-        return;
-      }
-      setUpdateStatus("downloading");
-      await Updates.fetchUpdateAsync();
-      setUpdateStatus("applying");
-      await Updates.reloadAsync();
-    } catch {
-      setUpdateStatus("failed");
-    } finally {
-      setIsUpdating(false);
-    }
-  }
-
   const nextAction = useMemo(() => deriveNextAction(locale, dashboard.reminders), [dashboard.reminders, locale]);
+  const needsLocationGate = !locationConfirmed && !dashboard.babyProfile?.country;
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
       <ScrollView style={styles.page} contentContainerStyle={styles.content}>
-        <LinearGradient colors={[palette.cream, palette.page]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
-          <View style={styles.heroTopRow}>
-            <View style={styles.heroBadge}>
-              <Text style={styles.heroBadgeText}>{copy.heroBadge}</Text>
-            </View>
-            <View style={styles.localeSwitcher}>
-              <Text style={styles.localeLabel}>{copy.languageLabel}</Text>
-              <View style={styles.localeOptions}>
-                {(Object.keys(copy.languageOptions) as Locale[]).map((option) => {
-                  const active = option === locale;
-                  return (
-                    <TouchableOpacity
-                      key={option}
-                      onPress={() => setLocale(option)}
-                      style={[styles.localePill, active && styles.localePillActive]}
-                    >
-                      <Text style={[styles.localePillText, active && styles.localePillTextActive]}>
-                        {copy.languageOptions[option]}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+        {!needsLocationGate ? (
+          <View style={styles.localeBar}>
+            <Text style={styles.localeLabel}>{copy.languageLabel}</Text>
+            <View style={styles.localeOptions}>
+              {(Object.keys(copy.languageOptions) as Locale[]).map((option) => {
+                const active = option === locale;
+                return (
+                  <TouchableOpacity
+                    key={option}
+                    onPress={() => void handleLocaleChange(option)}
+                    style={[styles.localePill, active && styles.localePillActive]}
+                  >
+                    <Text style={[styles.localePillText, active && styles.localePillTextActive]}>
+                      {copy.languageOptions[option]}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
-          <Text style={styles.heroTitle}>{copy.heroTitle}</Text>
-          <Text style={styles.heroCopy}>{copy.heroCopy}</Text>
-          <TouchableOpacity
-            onPress={handleCheckForUpdates}
-            style={[styles.updateButton, isUpdating && styles.updateButtonDisabled]}
-            disabled={isUpdating}
-          >
-            {isUpdating ? <ActivityIndicator color={palette.surface} /> : <Text style={styles.updateButtonText}>{copy.updateButton}</Text>}
-          </TouchableOpacity>
-          <Text style={styles.updateHint}>{copy.updateStatus[updateStatus]}</Text>
-        </LinearGradient>
+        ) : null}
 
-        <SectionHeader eyebrow={copy.screenEyebrows[activeTab]} title={copy.tabLabels[activeTab]} />
-        <TabBar activeTab={activeTab} labels={copy.tabLabels} onChange={setActiveTab} />
+        {!needsLocationGate ? (
+          <>
+            <SectionHeader eyebrow={copy.screenEyebrows[activeTab]} title={copy.tabLabels[activeTab]} />
+            <TabBar activeTab={activeTab} labels={copy.tabLabels} onChange={setActiveTab} />
+          </>
+        ) : null}
 
         {loadState === "loading" ? (
           <View style={styles.loadingWrap}>
@@ -370,21 +354,29 @@ export default function App() {
 
         {loadState !== "loading" && loadState !== "error" ? (
           <>
-            {activeTab === "today" ? (
+            {needsLocationGate ? (
+              <LocationGate
+                copy={copy}
+                locale={locale}
+                initialValue={locationDraft}
+                onLocaleChange={(nextLocale) => void handleLocaleChange(nextLocale)}
+                onConfirm={(value) => void handleConfirmLocation(value)}
+              />
+            ) : null}
+            {!needsLocationGate && activeTab === "today" ? (
               <TodayScreen
                 copy={copy}
                 locale={locale}
                 babyProfile={dashboard.babyProfile}
                 recommendations={todayRecommendations}
-                mode={dashboard.mode}
+                locationDraft={locationDraft}
                 saveBabyProfile={handleSaveBabyProfile}
-                onRequestMagicLink={handleRequestMagicLink}
                 onFeedback={handleRecommendationFeedback}
                 onRefreshAgent={() => refresh("manual_refresh")}
                 isAgentRunning={isAgentRunning}
               />
             ) : null}
-            {activeTab === "planner" ? (
+            {!needsLocationGate && activeTab === "planner" ? (
               <PlannerScreen
                 copy={copy}
                 locale={locale}
@@ -398,7 +390,7 @@ export default function App() {
                 isAgentRunning={isAgentRunning}
               />
             ) : null}
-            {activeTab === "outings" ? (
+            {!needsLocationGate && activeTab === "outings" ? (
               <OutingsScreen
                 copy={copy}
                 babyProfile={dashboard.babyProfile}
@@ -409,7 +401,7 @@ export default function App() {
                 onScenarioChange={handleScenarioChange}
               />
             ) : null}
-            {activeTab === "family" ? (
+            {!needsLocationGate && activeTab === "family" ? (
               <FamilyScreen
                 copy={copy}
                 locale={locale}
@@ -434,39 +426,20 @@ const styles = StyleSheet.create({
     flex: 1
   },
   content: {
-    padding: 18,
+    paddingHorizontal: 16,
+    paddingTop: 12,
     paddingBottom: 36,
     gap: 18
   },
-  hero: {
-    borderRadius: radius.xl,
-    padding: 22,
-    borderWidth: 1,
-    borderColor: "rgba(23,33,38,0.08)",
-    gap: 12
-  },
-  heroTopRow: {
+  localeBar: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: 12
-  },
-  heroBadge: {
-    backgroundColor: "rgba(255,250,244,0.9)",
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6
-  },
-  heroBadgeText: {
-    color: palette.ink,
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 0.4,
-    textTransform: "uppercase"
-  },
-  localeSwitcher: {
-    alignItems: "flex-end",
-    gap: 6
+    alignItems: "center",
+    gap: 12,
+    paddingBottom: 4,
+    maxWidth: 440,
+    width: "100%",
+    alignSelf: "center"
   },
   localeLabel: {
     color: palette.muted,
@@ -498,40 +471,6 @@ const styles = StyleSheet.create({
   },
   localePillTextActive: {
     color: palette.surface
-  },
-  heroTitle: {
-    color: palette.ink,
-    fontSize: 30,
-    lineHeight: 36,
-    fontWeight: "800"
-  },
-  heroCopy: {
-    color: palette.muted,
-    fontSize: 15,
-    lineHeight: 23
-  },
-  updateButton: {
-    alignSelf: "flex-start",
-    minWidth: 168,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: radius.md,
-    backgroundColor: palette.accentDeep,
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  updateButtonDisabled: {
-    opacity: 0.75
-  },
-  updateButtonText: {
-    color: palette.surface,
-    fontWeight: "800",
-    fontSize: 14
-  },
-  updateHint: {
-    color: palette.muted,
-    fontSize: 13,
-    lineHeight: 20
   },
   loadingWrap: {
     flexDirection: "row",

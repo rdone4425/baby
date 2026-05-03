@@ -50,6 +50,14 @@ export type Copy = {
     title: string;
     emptyTitle: string;
     emptyBody: string;
+    languageTitle: string;
+    languageHint: string;
+    locationTitle: string;
+    locationHint: string;
+    locationContinue: string;
+    country: string;
+    region: string;
+    street: string;
     name: string;
     birthDate: string;
     feedingMode: string;
@@ -98,6 +106,15 @@ export type Copy = {
     task: string;
     dueAt: string;
     save: string;
+  };
+  vaccinations: {
+    title: string;
+    eyebrow: string;
+    helper: string;
+    emptyAddress: string;
+    distanceLabel: string;
+    hoursLabel: string;
+    sampleBadge: string;
   };
   generic: {
     loading: string;

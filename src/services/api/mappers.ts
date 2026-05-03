@@ -7,6 +7,9 @@ function normalizeText(value: string) {
 export function mapBabyProfileInput(input: Omit<BabyProfile, "id" | "userId">) {
   return {
     ...input,
+    country: normalizeText(input.country),
+    region: normalizeText(input.region),
+    street: normalizeText(input.street),
     name: normalizeText(input.name),
     birthDate: normalizeText(input.birthDate),
     notes: normalizeText(input.notes)

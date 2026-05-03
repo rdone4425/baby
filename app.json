@@ -12,13 +12,6 @@
       "resizeMode": "contain",
       "backgroundColor": "#f6efe7"
     },
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
-    "updates": {
-      "checkAutomatically": "ON_LOAD",
-      "fallbackToCacheTimeout": 0
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -34,9 +27,6 @@
       },
       "edgeToEdgeEnabled": true
     },
-    "plugins": [
-      "expo-updates"
-    ],
     "extra": {
       "appMode": "preview"
     }

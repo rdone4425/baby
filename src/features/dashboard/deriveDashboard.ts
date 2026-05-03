@@ -25,6 +25,7 @@ function getStageGuidance(months: number, locale: Locale) {
     }
     return "宝宝进入更主动探索期，家庭分工和外出准备会更影响整体体验。";
   }
+  
 
   if (months < 3) {
     return "Protect the basics first: feeding rhythm, sleep windows, and stable handoffs.";
@@ -96,31 +97,44 @@ export function deriveWeeklyPlan(
   reminders: Reminder[],
   familyTasks: FamilyTask[]
 ) {
-  const combined: WeeklyPlanItem[] = [
-    ...appointments.map((item) => ({
-      id: item.id,
-      dayLabel: getRelativeDayLabel(item.startsAt, locale),
-      title: item.title,
-      detail: item.location || item.notes || (locale === "zh" ? "待补充细节" : "Add detail"),
-      type: "appointment" as const
+  type Sortable = { sortKey: string; plan: WeeklyPlanItem };
+
+  const combined: Sortable[] = [
+    ...appointments.map<Sortable>((item) => ({
+      sortKey: item.startsAt,
+      plan: {
+        id: item.id,
+        dayLabel: getRelativeDayLabel(item.startsAt, locale),
+        title: item.title,
+        detail: item.location || item.notes || (locale === "zh" ? "待补充细节" : "Add detail"),
+        type: "appointment"
+      }
     })),
-    ...reminders.map((item) => ({
-      id: item.id,
-      dayLabel: getRelativeDayLabel(item.dueAt, locale),
-      title: item.title,
-      detail: locale === "zh" ? "提醒事项" : "Reminder",
-      type: "reminder" as const
+    ...reminders.map<Sortable>((item) => ({
+      sortKey: item.dueAt,
+      plan: {
+        id: item.id,
+        dayLabel: getRelativeDayLabel(item.dueAt, locale),
+        title: item.title,
+        detail: locale === "zh" ? "提醒事项" : "Reminder",
+        type: "reminder"
+      }
     })),
-    ...familyTasks.map((item) => ({
-      id: item.id,
-      dayLabel: getRelativeDayLabel(item.dueAt, locale),
-      title: item.title,
-      detail: locale === "zh" ? `负责人：${item.assigneeName}` : `Owner: ${item.assigneeName}`,
-      type: "task" as const
+    ...familyTasks.map<Sortable>((item) => ({
+      sortKey: item.dueAt,
+      plan: {
+        id: item.id,
+        dayLabel: getRelativeDayLabel(item.dueAt, locale),
+        title: item.title,
+        detail: locale === "zh" ? `负责人：${item.assigneeName}` : `Owner: ${item.assigneeName}`,
+        type: "task"
+      }
     }))
   ];
 
-  return combined.sort((a, b) => a.dayLabel.localeCompare(b.dayLabel));
+  return combined
+    .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+    .map(({ plan }) => plan);
 }
 
 export function deriveNextAction(locale: Locale, reminders: Reminder[]) {

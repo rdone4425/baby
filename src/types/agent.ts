@@ -103,3 +103,53 @@ export type AgentRun = {
   };
   recommendations: AgentRecommendation[];
 };
+
+export type SoulDocumentMeta = {
+  version: string;
+  role: string;
+  mission: string;
+  tone: string;
+};
+
+export type SoulDocument = {
+  meta: SoulDocumentMeta;
+  rawMarkdown: string;
+};
+
+export type UserMemoryEventType = "agent_run" | "feedback" | "profile_update" | "appointment" | "reminder" | "family_task";
+
+export type UserMemoryEvent = {
+  id: string;
+  type: UserMemoryEventType;
+  createdAt: string;
+  title: string;
+  summary: string;
+  payload?: Record<string, unknown>;
+};
+
+export type UserMemorySnapshot = {
+  schemaVersion: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  preferredLocale: string | null;
+  country: string | null;
+  region: string | null;
+  street: string | null;
+  babyName: string | null;
+  babyBirthDate: string | null;
+  feedingMode: string | null;
+  profileNotes: string | null;
+  activeTaskCount: number;
+  reminderCount: number;
+  appointmentCount: number;
+  summaryNotes: string[];
+  memory: AgentMemory;
+  latestRun: AgentRun | null;
+};
+
+export type UserMemoryDocument = {
+  snapshot: UserMemorySnapshot;
+  events: UserMemoryEvent[];
+  rawMarkdown: string;
+};

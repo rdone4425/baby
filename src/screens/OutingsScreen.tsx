@@ -2,10 +2,12 @@ import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
+import { PanelHeader } from "../components/PanelHeader";
+import { StatPill } from "../components/StatPill";
 import { Copy } from "../i18n/types";
 import { AgentRecommendation } from "../types/agent";
 import { BabyProfile, Locale, OutingChecklistItem, OutingScenario } from "../types/domain";
-import { palette, radius } from "../theme/tokens";
+import { palette, radius, spacing } from "../theme/tokens";
 import { createId } from "../utils/id";
 
 type Props = {
@@ -30,27 +32,36 @@ export function OutingsScreen({ copy, scenario, checklist, recommendation, onSce
     () => recommendation?.description || copy.agent.outingHint,
     [recommendation, copy.agent.outingHint]
   );
+  const packedCount = localChecklist.filter((item) => item.packed).length;
 
   return (
     <View style={styles.stack}>
       <Card tone="info">
-        <Text style={styles.cardTitle}>{copy.outings.title}</Text>
-        <Text style={styles.cardBody}>{copy.outings.helper}</Text>
+        <PanelHeader eyebrow="Outing Coach" title={copy.outings.title} description={copy.outings.helper} />
         <Text style={styles.agentBody}>{recommendationText}</Text>
+        <View style={styles.metrics}>
+          <StatPill label="Scenario" value={copy.outings.scenarios[scenario]} tone="cool" />
+          <StatPill label="Packed" value={`${packedCount}/${localChecklist.length}`} tone="warm" />
+          <StatPill label="Profile" value={checklist.length && recommendation ? "Ready" : "Draft"} />
+        </View>
       </Card>
 
-      <View style={styles.pillRow}>
-        {(Object.keys(copy.outings.scenarios) as OutingScenario[]).map((option) => (
-          <Button
-            key={option}
-            label={copy.outings.scenarios[option]}
-            variant={option === scenario ? "primary" : "secondary"}
-            onPress={() => onScenarioChange(option)}
-          />
-        ))}
-      </View>
+      <Card tone="default">
+        <PanelHeader eyebrow="Scenario" title="Choose destination" />
+        <View style={styles.pillRow}>
+          {(Object.keys(copy.outings.scenarios) as OutingScenario[]).map((option) => (
+            <Button
+              key={option}
+              label={copy.outings.scenarios[option]}
+              variant={option === scenario ? "primary" : "secondary"}
+              onPress={() => onScenarioChange(option)}
+            />
+          ))}
+        </View>
+      </Card>
 
       <Card tone="default">
+        <PanelHeader eyebrow="Checklist" title="Pack with intention" description={copy.outings.checklistPlaceholder} />
         {localChecklist.map((item) => (
           <TouchableOpacity
             key={item.id}
@@ -93,7 +104,7 @@ export function OutingsScreen({ copy, scenario, checklist, recommendation, onSce
 
 const styles = StyleSheet.create({
   stack: {
-    gap: 14
+    gap: spacing.md
   },
   cardTitle: {
     color: palette.ink,
@@ -114,12 +125,12 @@ const styles = StyleSheet.create({
   pillRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8
+    gap: spacing.sm
   },
   checkRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12
+    gap: spacing.md
   },
   checkDot: {
     width: 12,
@@ -150,5 +161,10 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     color: palette.ink,
     fontSize: 14
+  },
+  metrics: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm
   }
 });
