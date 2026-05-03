@@ -5,6 +5,7 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "scheme": "babyweeklycompanion",
     "splash": {
       "resizeMode": "contain",
       "backgroundColor": "#f6efe7"
@@ -13,9 +14,11 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.rdone4425.babyweeklycompanion"
     },
     "android": {
+      "package": "com.rdone4425.babyweeklycompanion",
       "adaptiveIcon": {
         "backgroundColor": "#f6efe7"
       }
