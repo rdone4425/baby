@@ -2,23 +2,43 @@
   "expo": {
     "name": "Baby Weekly Companion",
     "slug": "baby-agent-mobile",
+    "scheme": "babyweekly",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "icon": "./assets/icon.png",
     "splash": {
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#f6efe7"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
     },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.babyweekly.companion"
     },
     "android": {
+      "package": "com.babyweekly.companion",
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#f6efe7"
-      }
+      },
+      "edgeToEdgeEnabled": true
+    },
+    "plugins": [
+      "expo-updates"
+    ],
+    "extra": {
+      "appMode": "preview"
     }
   }
 }

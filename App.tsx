@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -11,43 +12,264 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Updates from "expo-updates";
-import { copyByLocale, detectInitialLocale, type Locale, type TabKey } from "./src/i18n";
+import { buildAgentObservation } from "./src/agent/buildObservation";
+import { createEmptyAgentMemory } from "./src/agent/memory";
+import { SectionHeader } from "./src/components/SectionHeader";
+import { TabBar } from "./src/components/TabBar";
+import { copyByLocale, detectInitialLocale } from "./src/i18n";
+import { createAppRepository } from "./src/services/api";
+import { AppRepository } from "./src/services/api/types";
+import { FamilyScreen } from "./src/screens/FamilyScreen";
+import { OutingsScreen } from "./src/screens/OutingsScreen";
+import { PlannerScreen } from "./src/screens/PlannerScreen";
+import { TodayScreen } from "./src/screens/TodayScreen";
+import { palette, radius } from "./src/theme/tokens";
+import { AgentFeedbackVerdict, AgentMemory, AgentRecommendation, AgentRun, AgentTrigger } from "./src/types/agent";
+import {
+  Appointment,
+  DashboardData,
+  FamilyTask,
+  FeedingMode,
+  Locale,
+  OutingChecklistItem,
+  OutingScenario,
+  Reminder,
+  TabKey
+} from "./src/types/domain";
+import { LoadState } from "./src/types/service";
+import { buildOutingChecklist, deriveNextAction, deriveWeeklyPlan } from "./src/features/dashboard/deriveDashboard";
+import { createId } from "./src/utils/id";
 
-const palette = {
-  page: "#f6efe7",
-  pageAlt: "#f1e5d7",
-  ink: "#172126",
-  muted: "#5e666b",
-  line: "#d9c7b2",
-  card: "#fffaf4",
-  accent: "#d56e4b",
-  accentDeep: "#a84c31",
-  teal: "#7ea6a1",
-  sage: "#a9bb8f",
-  plum: "#6f5d79",
-  sky: "#c8d9de",
-  cream: "#f4d9bb"
+const repository: AppRepository = createAppRepository();
+
+type UpdateStatus =
+  | "idle"
+  | "checking"
+  | "downloading"
+  | "applying"
+  | "unavailableDev"
+  | "unavailableConfig"
+  | "upToDate"
+  | "failed";
+
+const emptyDashboard: DashboardData = {
+  user: {
+    id: "unknown",
+    email: "",
+    name: ""
+  },
+  mode: repository.mode,
+  babyProfile: null,
+  appointments: [],
+  reminders: [],
+  familyTasks: [],
+  todayItems: []
 };
 
 export default function App() {
   const [locale, setLocale] = useState<Locale>(detectInitialLocale);
   const [activeTab, setActiveTab] = useState<TabKey>("today");
+  const [loadState, setLoadState] = useState<LoadState>("idle");
+  const [error, setError] = useState<string | null>(null);
+  const [dashboard, setDashboard] = useState<DashboardData>(emptyDashboard);
+  const [weeklyPlan, setWeeklyPlan] = useState(deriveWeeklyPlan(locale, [], [], []));
+  const [outingScenario, setOutingScenario] = useState<OutingScenario>("clinic");
+  const [outingChecklist, setOutingChecklist] = useState<OutingChecklistItem[]>(
+    buildOutingChecklist(locale, "clinic", null)
+  );
+  const [agentMemory, setAgentMemory] = useState<AgentMemory>(createEmptyAgentMemory());
+  const [latestAgentRun, setLatestAgentRun] = useState<AgentRun | null>(null);
+  const [isAgentRunning, setIsAgentRunning] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [updateStatus, setUpdateStatus] = useState<
-    "idle" | "checking" | "downloading" | "applying" | "unavailableDev" | "unavailableConfig" | "upToDate" | "readyToReload" | "failed"
-  >("idle");
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>("idle");
+
   const copy = copyByLocale[locale];
+  const todayRecommendations = useMemo(
+    () => latestAgentRun?.recommendations.filter((item) => item.surface === "today") ?? [],
+    [latestAgentRun]
+  );
+  const plannerRecommendations = useMemo(
+    () => latestAgentRun?.recommendations.filter((item) => item.surface === "planner") ?? [],
+    [latestAgentRun]
+  );
+  const outingsRecommendation = useMemo(
+    () => latestAgentRun?.recommendations.find((item) => item.surface === "outings") ?? null,
+    [latestAgentRun]
+  );
+  const familyRecommendation = useMemo(
+    () => latestAgentRun?.recommendations.find((item) => item.surface === "family") ?? null,
+    [latestAgentRun]
+  );
 
-  const activeHeadline = useMemo(() => {
-    return copy.activeHeadline[activeTab];
-  }, [activeTab, copy]);
+  useEffect(() => {
+    void refresh("app_load");
+  }, []);
 
-  const tabLabels: { key: TabKey; label: string }[] = [
-    { key: "today", label: copy.tabs.today },
-    { key: "planner", label: copy.tabs.planner },
-    { key: "outings", label: copy.tabs.outings },
-    { key: "family", label: copy.tabs.family }
-  ];
+  useEffect(() => {
+    setWeeklyPlan(deriveWeeklyPlan(locale, dashboard.appointments, dashboard.reminders, dashboard.familyTasks));
+    setOutingChecklist(buildOutingChecklist(locale, outingScenario, dashboard.babyProfile));
+  }, [dashboard, locale, outingScenario]);
+
+  useEffect(() => {
+    if (dashboard.user.id === "unknown") {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      void runAgent("manual_refresh", dashboard);
+    }, 250);
+
+    return () => clearTimeout(timeout);
+  }, [locale]);
+
+  async function syncAgentState() {
+    const stateResult = await repository.getAgentState();
+    if (stateResult.ok && stateResult.data) {
+      setAgentMemory(stateResult.data.memory);
+      setLatestAgentRun(stateResult.data.latestRun);
+    }
+  }
+
+  async function runAgent(trigger: AgentTrigger, dashboardInput: DashboardData) {
+    setIsAgentRunning(true);
+    const result = await repository.runAgent(buildAgentObservation(dashboardInput, locale, outingScenario, trigger));
+    if (result.ok && result.data) {
+      setLatestAgentRun(result.data);
+    }
+    await syncAgentState();
+    setIsAgentRunning(false);
+  }
+
+  async function refresh(trigger: AgentTrigger) {
+    setLoadState("loading");
+    setError(null);
+    const result = await repository.getDashboardData();
+    if (!result.ok || !result.data) {
+      setLoadState("error");
+      setError(result.error ?? "Unable to load dashboard.");
+      return;
+    }
+
+    const normalized = {
+      ...result.data
+    };
+    setDashboard(normalized);
+    setLoadState(
+      normalized.babyProfile || normalized.appointments.length || normalized.familyTasks.length || normalized.reminders.length
+        ? "success"
+        : "empty"
+    );
+    await runAgent(trigger, normalized);
+  }
+
+  async function handleSaveBabyProfile(input: {
+    name: string;
+    birthDate: string;
+    feedingMode: FeedingMode;
+    notes: string;
+  }) {
+    const result = await repository.saveBabyProfile(input);
+    if (!result.ok) {
+      Alert.alert(copy.generic.saveFailed, result.error);
+      return;
+    }
+    Alert.alert(copy.generic.saveSucceeded);
+    await refresh("profile_saved");
+  }
+
+  async function handleSaveAppointment(input: Omit<Appointment, "id" | "userId" | "babyId" | "category">) {
+    const result = await repository.saveAppointment({ ...input, category: "checkup" });
+    if (!result.ok) {
+      Alert.alert(copy.generic.saveFailed, result.error);
+      return;
+    }
+    await recordImplicitFeedback("appointment_focus", "Appointment created after suggestion.");
+    await refresh("appointment_saved");
+  }
+
+  async function handleSaveReminder(input: Omit<Reminder, "id" | "userId" | "babyId" | "status" | "source">) {
+    const result = await repository.saveReminder(input);
+    if (!result.ok) {
+      Alert.alert(copy.generic.saveFailed, result.error);
+      return;
+    }
+    await recordImplicitFeedback("reminder_focus", "Reminder created after suggestion.");
+    await refresh("reminder_saved");
+  }
+
+  async function handleSaveFamilyTask(input: Omit<FamilyTask, "id" | "userId" | "babyId" | "status">) {
+    const result = await repository.saveFamilyTask(input);
+    if (!result.ok) {
+      Alert.alert(copy.generic.saveFailed, result.error);
+      return;
+    }
+    await recordImplicitFeedback("family_handoff", "Family task created after suggestion.", input.assigneeName);
+    await refresh("family_task_saved");
+  }
+
+  async function handleScenarioChange(scenario: OutingScenario) {
+    setOutingScenario(scenario);
+    const result = await repository.getOutingChecklist({ scenario, babyProfile: dashboard.babyProfile, locale });
+    if (result.ok && result.data) {
+      setOutingChecklist(result.data);
+    } else {
+      setOutingChecklist(buildOutingChecklist(locale, scenario, dashboard.babyProfile));
+    }
+    await recordImplicitFeedback("outing_prep", "Scenario changed and checklist re-used.", undefined, scenario);
+    if (dashboard.user.id !== "unknown") {
+      await runAgent("outing_scenario_changed", dashboard);
+    }
+  }
+
+  async function handleRequestMagicLink(email: string) {
+    const result = await repository.requestMagicLink(email);
+    if (!result.ok) {
+      Alert.alert(copy.generic.errorPrefix, result.error ?? copy.generic.magicLinkUnavailable);
+      return;
+    }
+    Alert.alert(copy.generic.saveSucceeded);
+  }
+
+  async function recordImplicitFeedback(
+    kind: AgentRecommendation["kind"],
+    note: string,
+    assigneeName?: string,
+    scenario?: OutingScenario
+  ) {
+    const recommendation = latestAgentRun?.recommendations.find((item) => item.kind === kind);
+    if (!recommendation) {
+      return;
+    }
+
+    await repository.saveAgentFeedback({
+      id: createId("agent-feedback"),
+      recommendationId: recommendation.id,
+      recommendationKind: recommendation.kind,
+      verdict: "implicit_accept",
+      channel: "implicit",
+      appliedAt: new Date().toISOString(),
+      note,
+      assigneeName: assigneeName ?? recommendation.metadata?.assigneeName,
+      outingScenario: scenario ?? (recommendation.metadata?.outingScenario as OutingScenario | undefined)
+    });
+    await syncAgentState();
+  }
+
+  async function handleRecommendationFeedback(recommendation: AgentRecommendation, verdict: AgentFeedbackVerdict) {
+    await repository.saveAgentFeedback({
+      id: createId("agent-feedback"),
+      recommendationId: recommendation.id,
+      recommendationKind: recommendation.kind,
+      verdict,
+      channel: "explicit",
+      appliedAt: new Date().toISOString(),
+      note: `${verdict} from Today surface`,
+      assigneeName: recommendation.metadata?.assigneeName,
+      outingScenario: recommendation.metadata?.outingScenario as OutingScenario | undefined
+    });
+    await syncAgentState();
+    await runAgent("manual_refresh", dashboard);
+  }
 
   async function handleCheckForUpdates() {
     if (isUpdating) {
@@ -67,18 +289,13 @@ export default function App() {
     try {
       setIsUpdating(true);
       setUpdateStatus("checking");
-
       const result = await Updates.checkForUpdateAsync();
-
       if (!result.isAvailable) {
         setUpdateStatus("upToDate");
         return;
       }
-
       setUpdateStatus("downloading");
       await Updates.fetchUpdateAsync();
-
-      setUpdateStatus("readyToReload");
       setUpdateStatus("applying");
       await Updates.reloadAsync();
     } catch {
@@ -88,16 +305,13 @@ export default function App() {
     }
   }
 
+  const nextAction = useMemo(() => deriveNextAction(locale, dashboard.reminders), [dashboard.reminders, locale]);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
       <ScrollView style={styles.page} contentContainerStyle={styles.content}>
-        <LinearGradient
-          colors={[palette.cream, palette.page]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.hero}
-        >
+        <LinearGradient colors={[palette.cream, palette.page]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
           <View style={styles.heroTopRow}>
             <View style={styles.heroBadge}>
               <Text style={styles.heroBadgeText}>{copy.heroBadge}</Text>
@@ -124,169 +338,92 @@ export default function App() {
           </View>
           <Text style={styles.heroTitle}>{copy.heroTitle}</Text>
           <Text style={styles.heroCopy}>{copy.heroCopy}</Text>
-          <View style={styles.snapshotRow}>
-            {copy.metrics.map((metric) => (
-              <Metric key={metric.label} value={metric.value} label={metric.label} />
-            ))}
-          </View>
-          <View style={styles.updateCard}>
-            <TouchableOpacity
-              onPress={handleCheckForUpdates}
-              style={[styles.updateButton, isUpdating && styles.updateButtonDisabled]}
-              disabled={isUpdating}
-            >
-              {isUpdating ? (
-                <ActivityIndicator color="#fffaf4" size="small" />
-              ) : (
-                <Text style={styles.updateButtonText}>{copy.update.button}</Text>
-              )}
-            </TouchableOpacity>
-            <Text style={styles.updateHint}>{copy.update[updateStatus]}</Text>
-          </View>
+          <TouchableOpacity
+            onPress={handleCheckForUpdates}
+            style={[styles.updateButton, isUpdating && styles.updateButtonDisabled]}
+            disabled={isUpdating}
+          >
+            {isUpdating ? <ActivityIndicator color={palette.surface} /> : <Text style={styles.updateButtonText}>{copy.updateButton}</Text>}
+          </TouchableOpacity>
+          <Text style={styles.updateHint}>{copy.updateStatus[updateStatus]}</Text>
         </LinearGradient>
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionEyebrow}>{copy.sectionEyebrow}</Text>
-          <Text style={styles.sectionTitle}>{activeHeadline}</Text>
-        </View>
+        <SectionHeader eyebrow={copy.screenEyebrows[activeTab]} title={copy.tabLabels[activeTab]} />
+        <TabBar activeTab={activeTab} labels={copy.tabLabels} onChange={setActiveTab} />
 
-        <View style={styles.tabBar}>
-          {tabLabels.map((tab) => {
-            const active = activeTab === tab.key;
-            return (
-              <TouchableOpacity
-                key={tab.key}
-                onPress={() => setActiveTab(tab.key)}
-                style={[styles.tab, active && styles.tabActive]}
-              >
-                <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{tab.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        {loadState === "loading" ? (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator color={palette.accentDeep} />
+            <Text style={styles.loadingText}>{copy.generic.loading}</Text>
+          </View>
+        ) : null}
 
-        {activeTab === "today" && <TodayTab locale={locale} />}
-        {activeTab === "planner" && <PlannerTab locale={locale} />}
-        {activeTab === "outings" && <OutingsTab locale={locale} />}
-        {activeTab === "family" && <FamilyTab locale={locale} />}
+        {loadState === "error" ? (
+          <View style={styles.errorCard}>
+            <Text style={styles.errorTitle}>{copy.generic.errorPrefix}</Text>
+            <Text style={styles.errorBody}>{error}</Text>
+            <TouchableOpacity onPress={() => void refresh("manual_refresh")} style={styles.retryButton}>
+              <Text style={styles.retryText}>{copy.generic.retry}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
-        <View style={styles.footerCard}>
-          <Text style={styles.footerTitle}>{copy.footerTitle}</Text>
-          <Text style={styles.footerCopy}>{copy.footerCopy}</Text>
-        </View>
+        {loadState !== "loading" && loadState !== "error" ? (
+          <>
+            {activeTab === "today" ? (
+              <TodayScreen
+                copy={copy}
+                locale={locale}
+                babyProfile={dashboard.babyProfile}
+                recommendations={todayRecommendations}
+                mode={dashboard.mode}
+                saveBabyProfile={handleSaveBabyProfile}
+                onRequestMagicLink={handleRequestMagicLink}
+                onFeedback={handleRecommendationFeedback}
+                onRefreshAgent={() => refresh("manual_refresh")}
+                isAgentRunning={isAgentRunning}
+              />
+            ) : null}
+            {activeTab === "planner" ? (
+              <PlannerScreen
+                copy={copy}
+                locale={locale}
+                weeklyPlan={weeklyPlan}
+                reminders={dashboard.reminders}
+                nextAction={plannerRecommendations[0]?.description || nextAction}
+                recommendations={plannerRecommendations}
+                onSaveAppointment={handleSaveAppointment}
+                onSaveReminder={handleSaveReminder}
+                onRefreshAgent={() => refresh("manual_refresh")}
+                isAgentRunning={isAgentRunning}
+              />
+            ) : null}
+            {activeTab === "outings" ? (
+              <OutingsScreen
+                copy={copy}
+                babyProfile={dashboard.babyProfile}
+                scenario={outingScenario}
+                checklist={outingChecklist}
+                locale={locale}
+                recommendation={outingsRecommendation}
+                onScenarioChange={handleScenarioChange}
+              />
+            ) : null}
+            {activeTab === "family" ? (
+              <FamilyScreen
+                copy={copy}
+                locale={locale}
+                tasks={dashboard.familyTasks}
+                recommendation={familyRecommendation}
+                onSaveTask={handleSaveFamilyTask}
+              />
+            ) : null}
+          </>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
 }
-
-function TodayTab({ locale }: { locale: Locale }) {
-  const copy = copyByLocale[locale];
-  return (
-    <View style={styles.stack}>
-      {copy.todayCards.map((card) => (
-        <View key={card.title} style={[styles.infoCard, toneStyle[card.tone]]}>
-          <Text style={styles.cardEyebrow}>{card.eyebrow}</Text>
-          <Text style={styles.cardTitle}>{card.title}</Text>
-          <Text style={styles.cardCopy}>{card.description}</Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function PlannerTab({ locale }: { locale: Locale }) {
-  const copy = copyByLocale[locale];
-  return (
-    <View style={styles.stack}>
-      <View style={styles.panel}>
-        <Text style={styles.panelTitle}>{copy.weeklyPlanTitle}</Text>
-        {copy.weeklyPlan.map((item) => (
-          <View key={item.day} style={styles.timelineRow}>
-            <Text style={styles.timelineDay}>{item.day}</Text>
-            <View style={styles.timelineBody}>
-              <Text style={styles.timelineTitle}>{item.title}</Text>
-              <Text style={styles.timelineCopy}>{item.detail}</Text>
-            </View>
-          </View>
-        ))}
-      </View>
-      <View style={styles.highlightStrip}>
-        <Text style={styles.highlightText}>{copy.weeklyNextAction}</Text>
-      </View>
-    </View>
-  );
-}
-
-function OutingsTab({ locale }: { locale: Locale }) {
-  const copy = copyByLocale[locale];
-  return (
-    <View style={styles.stack}>
-      <View style={styles.weatherCard}>
-        <Text style={styles.cardEyebrow}>{copy.outingEyebrow}</Text>
-        <Text style={styles.cardTitle}>{copy.outingTitle}</Text>
-        <Text style={styles.cardCopy}>{copy.outingCopy}</Text>
-      </View>
-      <View style={styles.panel}>
-        <Text style={styles.panelTitle}>{copy.packListTitle}</Text>
-        {copy.outingChecklist.map((item) => (
-          <View key={item} style={styles.checkRow}>
-            <View style={styles.checkDot} />
-            <Text style={styles.checkText}>{item}</Text>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-function FamilyTab({ locale }: { locale: Locale }) {
-  const copy = copyByLocale[locale];
-  return (
-    <View style={styles.stack}>
-      <View style={styles.panel}>
-        <Text style={styles.panelTitle}>{copy.familyTitle}</Text>
-        {copy.familyFeed.map((item) => (
-          <View key={item.role} style={styles.familyRow}>
-            <View>
-              <Text style={styles.familyRole}>{item.role}</Text>
-              <Text style={styles.familyTask}>{item.task}</Text>
-            </View>
-            <View style={styles.statusPill}>
-              <Text style={styles.statusText}>{item.status}</Text>
-            </View>
-          </View>
-        ))}
-      </View>
-      <View style={styles.familyNote}>
-        <Text style={styles.familyNoteText}>{copy.familyNote}</Text>
-      </View>
-    </View>
-  );
-}
-
-function Metric({ value, label }: { value: string; label: string }) {
-  return (
-    <View style={styles.metric}>
-      <Text style={styles.metricValue}>{value}</Text>
-      <Text style={styles.metricLabel}>{label}</Text>
-    </View>
-  );
-}
-
-const toneStyle = StyleSheet.create({
-  urgent: {
-    borderLeftColor: palette.accent,
-    backgroundColor: "#fff0eb"
-  },
-  calm: {
-    borderLeftColor: palette.sage,
-    backgroundColor: "#f7f6ea"
-  },
-  info: {
-    borderLeftColor: palette.teal,
-    backgroundColor: "#eef5f4"
-  }
-});
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -302,12 +439,11 @@ const styles = StyleSheet.create({
     gap: 18
   },
   hero: {
-    borderRadius: 30,
+    borderRadius: radius.xl,
     padding: 22,
     borderWidth: 1,
     borderColor: "rgba(23,33,38,0.08)",
-    overflow: "hidden",
-    gap: 14
+    gap: 12
   },
   heroTopRow: {
     flexDirection: "row",
@@ -316,13 +452,10 @@ const styles = StyleSheet.create({
     gap: 12
   },
   heroBadge: {
-    alignSelf: "flex-start",
     backgroundColor: "rgba(255,250,244,0.9)",
     borderRadius: 999,
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: "rgba(23,33,38,0.08)"
+    paddingVertical: 6
   },
   heroBadgeText: {
     color: palette.ink,
@@ -364,7 +497,7 @@ const styles = StyleSheet.create({
     fontWeight: "700"
   },
   localePillTextActive: {
-    color: "#fffaf4"
+    color: palette.surface
   },
   heroTitle: {
     color: palette.ink,
@@ -377,255 +510,65 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 23
   },
-  updateCard: {
-    gap: 10,
-    marginTop: 4
-  },
   updateButton: {
     alignSelf: "flex-start",
-    minWidth: 158,
+    minWidth: 168,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderRadius: 16,
+    borderRadius: radius.md,
     backgroundColor: palette.accentDeep,
     alignItems: "center",
     justifyContent: "center"
   },
   updateButtonDisabled: {
-    opacity: 0.82
+    opacity: 0.75
   },
   updateButtonText: {
-    color: "#fffaf4",
-    fontSize: 14,
-    fontWeight: "800"
+    color: palette.surface,
+    fontWeight: "800",
+    fontSize: 14
   },
   updateHint: {
     color: palette.muted,
     fontSize: 13,
-    lineHeight: 20,
-    maxWidth: 320
-  },
-  snapshotRow: {
-    flexDirection: "row",
-    gap: 12
-  },
-  metric: {
-    flex: 1,
-    backgroundColor: "rgba(255,255,255,0.68)",
-    padding: 14,
-    borderRadius: 22
-  },
-  metricValue: {
-    color: palette.ink,
-    fontSize: 26,
-    fontWeight: "800"
-  },
-  metricLabel: {
-    color: palette.muted,
-    fontSize: 12,
-    marginTop: 3
-  },
-  sectionHeader: {
-    gap: 4,
-    marginTop: 2
-  },
-  sectionEyebrow: {
-    color: palette.accentDeep,
-    fontSize: 12,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.5
-  },
-  sectionTitle: {
-    color: palette.ink,
-    fontSize: 24,
-    lineHeight: 30,
-    fontWeight: "800"
-  },
-  tabBar: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10
-  },
-  tab: {
-    paddingHorizontal: 15,
-    paddingVertical: 11,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: palette.line,
-    backgroundColor: "rgba(255,255,255,0.45)"
-  },
-  tabActive: {
-    backgroundColor: palette.ink,
-    borderColor: palette.ink
-  },
-  tabLabel: {
-    color: palette.ink,
-    fontSize: 14,
-    fontWeight: "700"
-  },
-  tabLabelActive: {
-    color: "#fffaf4"
-  },
-  stack: {
-    gap: 14
-  },
-  infoCard: {
-    borderRadius: 24,
-    padding: 18,
-    borderLeftWidth: 6
-  },
-  cardEyebrow: {
-    color: palette.accentDeep,
-    fontSize: 12,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.35,
-    marginBottom: 8
-  },
-  cardTitle: {
-    color: palette.ink,
-    fontSize: 20,
-    lineHeight: 26,
-    fontWeight: "800",
-    marginBottom: 8
-  },
-  cardCopy: {
-    color: palette.muted,
-    fontSize: 14,
-    lineHeight: 22
-  },
-  panel: {
-    backgroundColor: palette.card,
-    borderRadius: 26,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: palette.line,
-    gap: 14
-  },
-  panelTitle: {
-    color: palette.ink,
-    fontSize: 19,
-    fontWeight: "800"
-  },
-  timelineRow: {
-    flexDirection: "row",
-    gap: 14
-  },
-  timelineDay: {
-    width: 42,
-    color: palette.accentDeep,
-    fontSize: 13,
-    fontWeight: "800",
-    marginTop: 2
-  },
-  timelineBody: {
-    flex: 1,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(217,199,178,0.6)"
-  },
-  timelineTitle: {
-    color: palette.ink,
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 4
-  },
-  timelineCopy: {
-    color: palette.muted,
-    fontSize: 14,
-    lineHeight: 21
-  },
-  highlightStrip: {
-    backgroundColor: palette.plum,
-    borderRadius: 22,
-    padding: 16
-  },
-  highlightText: {
-    color: "#f9f5f1",
-    fontSize: 14,
-    lineHeight: 21,
-    fontWeight: "600"
-  },
-  weatherCard: {
-    backgroundColor: palette.sky,
-    borderRadius: 26,
-    padding: 18
-  },
-  checkRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12
-  },
-  checkDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 999,
-    backgroundColor: palette.accent
-  },
-  checkText: {
-    flex: 1,
-    color: palette.ink,
-    fontSize: 15,
     lineHeight: 20
   },
-  familyRow: {
+  loadingWrap: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    gap: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(217,199,178,0.6)"
+    gap: 10
   },
-  familyRole: {
-    color: palette.ink,
-    fontSize: 16,
-    fontWeight: "700"
-  },
-  familyTask: {
+  loadingText: {
     color: palette.muted,
-    fontSize: 13,
-    lineHeight: 19,
-    marginTop: 4,
-    maxWidth: 220
+    fontSize: 14
   },
-  statusPill: {
-    backgroundColor: palette.pageAlt,
-    borderRadius: 999,
-    paddingHorizontal: 11,
-    paddingVertical: 8
+  errorCard: {
+    backgroundColor: palette.dangerSoft,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: palette.accent,
+    padding: 16,
+    gap: 8
   },
-  statusText: {
+  errorTitle: {
     color: palette.ink,
-    fontSize: 12,
-    fontWeight: "700"
-  },
-  familyNote: {
-    backgroundColor: "#f3eadf",
-    borderRadius: 22,
-    padding: 16
-  },
-  familyNoteText: {
-    color: palette.muted,
-    fontSize: 14,
-    lineHeight: 21
-  },
-  footerCard: {
-    marginTop: 4,
-    backgroundColor: "#f0e4d5",
-    borderRadius: 24,
-    padding: 18
-  },
-  footerTitle: {
-    color: palette.ink,
-    fontSize: 18,
     fontWeight: "800",
-    marginBottom: 8
+    fontSize: 16
   },
-  footerCopy: {
+  errorBody: {
     color: palette.muted,
     fontSize: 14,
     lineHeight: 21
+  },
+  retryButton: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: radius.md,
+    backgroundColor: palette.accentDeep
+  },
+  retryText: {
+    color: palette.surface,
+    fontWeight: "800"
   }
 });
