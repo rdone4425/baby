@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "Baby Weekly Companion",
+    "slug": "baby-agent-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#f6efe7"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#f6efe7"
+      }
+    }
+  }
+}

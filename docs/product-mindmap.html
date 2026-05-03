@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Baby Planning Agent - 产品脑图</title>
+  <style>
+    :root {
+      --bg: #f7efe6;
+      --paper: rgba(255, 250, 244, 0.88);
+      --ink: #1d2529;
+      --muted: #5f686d;
+      --line: #d7c5b3;
+      --accent: #c8623d;
+      --accent-soft: #efd2bf;
+      --teal: #7e9f9c;
+      --shadow: 0 24px 60px rgba(88, 56, 34, 0.12);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(239, 210, 191, 0.95), transparent 28%),
+        radial-gradient(circle at top right, rgba(126, 159, 156, 0.22), transparent 20%),
+        linear-gradient(180deg, #fbf5ef 0%, var(--bg) 100%);
+    }
+    .page { max-width: 1320px; margin: 0 auto; padding: 40px 24px 64px; }
+    .hero {
+      background: var(--paper);
+      border: 1px solid rgba(215, 197, 179, 0.9);
+      border-radius: 32px;
+      padding: 28px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+    .eyebrow {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #fff;
+      border: 1px solid rgba(29, 37, 41, 0.08);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    h1 { margin: 16px 0 10px; font-size: 42px; line-height: 1.05; }
+    .intro { max-width: 760px; margin: 0; color: var(--muted); font-size: 18px; line-height: 1.7; }
+    .mindmap { margin-top: 28px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    .branch { background: rgba(255, 252, 248, 0.9); border: 1px solid var(--line); border-radius: 24px; padding: 20px; }
+    .branch h2 { margin: 0 0 14px; font-size: 22px; }
+    .tree, .tree ul { list-style: none; margin: 0; padding-left: 18px; position: relative; }
+    .tree ul { margin-top: 10px; }
+    .tree ul::before { content: ""; position: absolute; left: 0; top: 0; bottom: 10px; width: 1px; background: var(--line); }
+    .tree li { position: relative; padding-left: 14px; margin: 10px 0; color: var(--muted); line-height: 1.5; }
+    .tree li::before { content: ""; position: absolute; left: 0; top: 11px; width: 10px; height: 1px; background: var(--line); }
+    .node { display: inline-block; color: var(--ink); font-weight: 700; background: linear-gradient(180deg, #fff, #fdf7f1); border: 1px solid rgba(215, 197, 179, 0.95); border-radius: 14px; padding: 8px 12px; }
+    .node.soft { background: linear-gradient(180deg, #fff7f2, var(--accent-soft)); }
+    .root-note { margin-top: 18px; padding: 16px 18px; border-left: 4px solid var(--accent); border-radius: 16px; background: rgba(239, 210, 191, 0.4); color: var(--ink); font-weight: 600; }
+    @media (max-width: 900px) {
+      .mindmap { grid-template-columns: 1fr; }
+      h1 { font-size: 34px; }
+      .intro { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <span class="eyebrow">Product Mindmap</span>
+      <h1>Baby Planning Agent App</h1>
+      <p class="intro">一个面向海外新手父母的手机软件，不做泛内容、不做通用 tracker，而是用更清晰的 weekly planning、appointment companion、outing guidance 和 family coordination 帮用户知道“现在最重要的是什么”。</p>
+      <div class="root-note">核心定位：主动型 parenting assistant，而不是开放式聊天机器人。</div>
+    </section>
+    <section class="mindmap">
+      <article class="branch">
+        <h2>产品定位</h2>
+        <ul class="tree">
+          <li><span class="node soft">海外英语市场</span></li>
+          <li><span class="node">新手父母</span></li>
+          <li><span class="node">手机 App</span></li>
+          <li><span class="node">订阅型 C 端</span></li>
+          <li><span class="node">主动型 parenting assistant</span></li>
+        </ul>
+      </article>
+      <article class="branch">
+        <h2>不做什么</h2>
+        <ul class="tree">
+          <li><span class="node">不做泛母婴内容平台</span></li>
+          <li><span class="node">不做通用 baby tracker</span></li>
+          <li><span class="node">不做纯聊天机器人</span></li>
+          <li><span class="node">不做 AI 儿科医生</span></li>
+        </ul>
+      </article>
+      <article class="branch">
+        <h2>核心价值</h2>
+        <ul class="tree">
+          <li><span class="node soft">减少遗漏</span></li>
+          <li><span class="node soft">减少焦虑</span></li>
+          <li><span class="node soft">减少判断成本</span></li>
+          <li><span class="node">把今天该做什么讲清楚</span></li>
+          <li><span class="node">帮助家庭协作</span></li>
+        </ul>
+      </article>
+      <article class="branch">
+        <h2>核心用户</h2>
+        <ul class="tree">
+          <li><span class="node">0 到 3 岁宝宝家庭</span></li>
+          <li><span class="node">第一次做父母的人群</span></li>
+          <li><span class="node">双职工家庭</span></li>
+          <li><span class="node">需要祖辈或保姆协作的家庭</span></li>
+        </ul>
+      </article>
+      <article class="branch">
+        <h2>核心场景</h2>
+        <ul class="tree">
+          <li><span class="node soft">Weekly Planning</span><ul><li>本周重点事项</li><li>月龄阶段提醒</li><li>疫苗 / 体检前瞻</li><li>辅食阶段变化</li></ul></li>
+          <li><span class="node soft">Appointment Companion</span><ul><li>预约前准备</li><li>要带什么</li><li>注意事项</li><li>结束后跟进</li></ul></li>
+          <li><span class="node soft">Outing Guidance</span><ul><li>天气判断</li><li>穿什么</li><li>带什么</li><li>能不能出门</li></ul></li>
+          <li><span class="node soft">Family Coordination</span><ul><li>任务分配</li><li>共享提醒</li><li>照护人同步</li><li>交接记录</li></ul></li>
+        </ul>
+      </article>
+      <article class="branch">
+        <h2>核心页面</h2>
+        <ul class="tree">
+          <li><span class="node">Today</span><ul><li>今天最重要的 2 到 4 件事</li><li>next best action</li><li>提醒卡片</li></ul></li>
+          <li><span class="node">Planner</span><ul><li>每周时间轴</li><li>Upcoming milestones</li><li>预约安排</li></ul></li>
+          <li><span class="node">Outings</span><ul><li>外出清单</li><li>穿衣建议</li><li>天气相关建议</li></ul></li>
+          <li><span class="node">Family</span><ul><li>成员角色</li><li>任务状态</li><li>共享计划</li></ul></li>
+        </ul>
+      </article>
+      <article class="branch">
+        <h2>V1 功能</h2>
+        <ul class="tree">
+          <li><span class="node">宝宝档案</span></li>
+          <li><span class="node">月龄自动计算</span></li>
+          <li><span class="node">每周计划</span></li>
+          <li><span class="node">预约清单</span></li>
+          <li><span class="node">外出清单</span></li>
+          <li><span class="node">家庭共享任务</span></li>
+          <li><span class="node">基础提醒</span></li>
+        </ul>
+      </article>
+      <article class="branch">
+        <h2>付费设计</h2>
+        <ul class="tree">
+          <li><span class="node soft">免费层</span><ul><li>单宝宝</li><li>基础提醒</li><li>基础每周计划</li></ul></li>
+          <li><span class="node soft">订阅层</span><ul><li>家庭共享</li><li>AI 周报</li><li>高级清单生成</li><li>多宝宝管理</li><li>高级计划能力</li></ul></li>
+        </ul>
+      </article>
+      <article class="branch">
+        <h2>增长路径</h2>
+        <ul class="tree">
+          <li><span class="node">从 Weekly Planner 切入</span></li>
+          <li><span class="node">扩到 Appointment Companion</span></li>
+          <li><span class="node">扩到 Family Plan</span></li>
+          <li><span class="node">最后叠加 AI clarity layer</span></li>
+        </ul>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

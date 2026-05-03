@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Baby Planning Agent - 技术脑图</title>
+  <style>
+    :root {
+      --bg: #eef3f1;
+      --paper: rgba(250, 253, 252, 0.9);
+      --ink: #152126;
+      --muted: #5c6a6d;
+      --line: #c5d4d0;
+      --accent: #2f7b73;
+      --accent-soft: #d9ebe7;
+      --shadow: 0 24px 60px rgba(37, 73, 68, 0.14);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(217, 235, 231, 0.95), transparent 25%),
+        radial-gradient(circle at top left, rgba(239, 216, 198, 0.55), transparent 22%),
+        linear-gradient(180deg, #f8fbfa 0%, var(--bg) 100%);
+    }
+    .page { max-width: 1360px; margin: 0 auto; padding: 40px 24px 64px; }
+    .hero {
+      background: var(--paper);
+      border: 1px solid rgba(197, 212, 208, 0.95);
+      border-radius: 32px;
+      padding: 28px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+    .eyebrow {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #fff;
+      border: 1px solid rgba(21, 33, 38, 0.08);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    h1 { margin: 16px 0 10px; font-size: 42px; line-height: 1.05; }
+    .intro { max-width: 840px; margin: 0; color: var(--muted); font-size: 18px; line-height: 1.7; }
+    .root-note { margin-top: 18px; padding: 16px 18px; border-left: 4px solid var(--accent); border-radius: 16px; background: rgba(217, 235, 231, 0.55); color: var(--ink); font-weight: 600; }
+    .mindmap { margin-top: 28px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    .branch { background: rgba(255, 255, 255, 0.78); border: 1px solid var(--line); border-radius: 24px; padding: 20px; }
+    .branch h2 { margin: 0 0 14px; font-size: 22px; }
+    .tree, .tree ul { list-style: none; margin: 0; padding-left: 18px; position: relative; }
+    .tree ul { margin-top: 10px; }
+    .tree ul::before { content: ""; position: absolute; left: 0; top: 0; bottom: 10px; width: 1px; background: var(--line); }
+    .tree li { position: relative; padding-left: 14px; margin: 10px 0; color: var(--muted); line-height: 1.5; }
+    .tree li::before { content: ""; position: absolute; left: 0; top: 11px; width: 10px; height: 1px; background: var(--line); }
+    .node { display: inline-block; color: var(--ink); font-weight: 700; background: linear-gradient(180deg, #fff, #f3faf8); border: 1px solid rgba(197, 212, 208, 0.95); border-radius: 14px; padding: 8px 12px; }
+    .node.soft { background: linear-gradient(180deg, #ffffff, var(--accent-soft)); }
+    @media (max-width: 900px) {
+      .mindmap { grid-template-columns: 1fr; }
+      h1 { font-size: 34px; }
+      .intro { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <span class="eyebrow">Tech Mindmap</span>
+      <h1>Baby Planning Agent Tech</h1>
+      <p class="intro">技术上不应该先做一个万能 AI，而应该搭一个规则优先、状态驱动、半主动触发的 agent system：移动端负责承载体验，rules engine 决定骨架，LLM 负责解释、整理和输出。</p>
+      <div class="root-note">关键原则：规则做骨架，AI 做肌肉和皮肤；高风险医疗判断一律不交给模型。</div>
+    </section>
+    <section class="mindmap">
+      <article class="branch"><h2>整体架构</h2><ul class="tree"><li><span class="node soft">Mobile App</span></li><li><span class="node soft">Agent Service</span></li><li><span class="node soft">Rules Engine</span></li><li><span class="node soft">Data Store</span></li><li><span class="node soft">Notification Service</span></li><li><span class="node soft">External APIs</span></li></ul></article>
+      <article class="branch"><h2>Mobile App</h2><ul class="tree"><li><span class="node">React Native / Expo</span></li><li><span class="node">Today 页面</span></li><li><span class="node">Planner 页面</span></li><li><span class="node">Outings 页面</span></li><li><span class="node">Family 页面</span></li><li><span class="node">Profile / Settings</span></li></ul></article>
+      <article class="branch"><h2>Agent Service</h2><ul class="tree"><li><span class="node soft">状态感知</span><ul><li>宝宝年龄</li><li>家庭角色</li><li>预约状态</li><li>用户偏好</li></ul></li><li><span class="node soft">任务生成</span><ul><li>weekly plan</li><li>today priorities</li><li>appointment prep</li><li>outing checklist</li></ul></li><li><span class="node soft">输出生成</span><ul><li>自然语言说明</li><li>摘要</li><li>next best action</li></ul></li><li><span class="node soft">半主动触发</span><ul><li>定时</li><li>事件</li><li>用户请求</li></ul></li></ul></article>
+      <article class="branch"><h2>Rules Engine</h2><ul class="tree"><li><span class="node">月龄规则</span></li><li><span class="node">疫苗 / 体检规则</span></li><li><span class="node">喂养阶段规则</span></li><li><span class="node">天气到建议映射</span></li><li><span class="node">外出清单模板</span></li><li><span class="node">家庭协作规则</span></li></ul></article>
+      <article class="branch"><h2>LLM / AI 层</h2><ul class="tree"><li><span class="node soft">解释复杂信息</span></li><li><span class="node soft">把规则结果转成自然语言</span></li><li><span class="node soft">生成个性化清单</span></li><li><span class="node soft">生成 weekly summary</span></li><li><span class="node">不负责医疗判断</span></li></ul></article>
+      <article class="branch"><h2>数据输入</h2><ul class="tree"><li><span class="node">宝宝生日</span></li><li><span class="node">国家 / 地区</span></li><li><span class="node">预约日期</span></li><li><span class="node">天气数据</span></li><li><span class="node">家庭成员信息</span></li><li><span class="node">用户手动记录</span></li></ul></article>
+      <article class="branch"><h2>数据模型</h2><ul class="tree"><li><span class="node">Baby Profile</span></li><li><span class="node">Caregiver Profile</span></li><li><span class="node">Milestone Timeline</span></li><li><span class="node">Appointment</span></li><li><span class="node">Checklist</span></li><li><span class="node">Reminder</span></li><li><span class="node">Weekly Plan</span></li><li><span class="node">Agent Summary</span></li></ul></article>
+      <article class="branch"><h2>触发机制</h2><ul class="tree"><li><span class="node soft">每日触发</span><ul><li>生成 Today feed</li></ul></li><li><span class="node soft">每周触发</span><ul><li>生成 Weekly Plan</li></ul></li><li><span class="node soft">预约前触发</span><ul><li>生成 appointment prep</li></ul></li><li><span class="node soft">天气变化触发</span><ul><li>更新 outing guidance</li></ul></li><li><span class="node soft">用户点击触发</span><ul><li>重新生成建议</li></ul></li></ul></article>
+      <article class="branch"><h2>通知系统</h2><ul class="tree"><li><span class="node">Push reminders</span></li><li><span class="node">预约前提醒</span></li><li><span class="node">每周摘要提醒</span></li><li><span class="node">家庭共享提醒</span></li></ul></article>
+      <article class="branch"><h2>后端能力</h2><ul class="tree"><li><span class="node">Auth</span></li><li><span class="node">Profile storage</span></li><li><span class="node">Schedule engine</span></li><li><span class="node">Agent orchestration</span></li><li><span class="node">Notification queue</span></li><li><span class="node">Audit / logs</span></li></ul></article>
+      <article class="branch"><h2>安全边界</h2><ul class="tree"><li><span class="node">不做诊断</span></li><li><span class="node">高风险场景降级</span></li><li><span class="node">显示医疗免责声明</span></li><li><span class="node">敏感数据保护</span></li></ul></article>
+      <article class="branch"><h2>V1 技术范围</h2><ul class="tree"><li><span class="node soft">单一 agent service</span></li><li><span class="node soft">规则优先</span></li><li><span class="node soft">少量 LLM 增强</span></li><li><span class="node soft">基础推送</span></li><li><span class="node soft">基础共享</span></li></ul></article>
+      <article class="branch"><h2>后续演进</h2><ul class="tree"><li><span class="node">多宝宝</span></li><li><span class="node">更多国家规则</span></li><li><span class="node">个性化记忆</span></li><li><span class="node">更强家庭协作</span></li><li><span class="node">订阅和计费</span></li></ul></article>
+    </section>
+  </main>
+</body>
+</html>
