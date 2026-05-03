@@ -3,6 +3,9 @@ name: android-release-unsigned
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-release:
     runs-on: ubuntu-latest
@@ -43,5 +46,22 @@ jobs:
         with:
           name: baby-weekly-companion-unsigned-release
           path: |
+            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/bundle/release/app-release.aab
+
+      - name: Generate release tag
+        id: release_meta
+        run: |
+          echo "tag=android-unsigned-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+          echo "name=Android Unsigned Build ${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release_meta.outputs.tag }}
+          name: ${{ steps.release_meta.outputs.name }}
+          generate_release_notes: true
+          prerelease: true
+          files: |
             android/app/build/outputs/apk/release/app-release.apk
             android/app/build/outputs/bundle/release/app-release.aab
