@@ -11,11 +11,24 @@ This app is intentionally not a generic tracker or chat bot. The first version i
 - `Outings`: weather-aware packing and wear guidance
 - `Family`: caregiver coordination and shared responsibilities
 
+The current prototype includes lightweight built-in i18n with English and Simplified Chinese UI copy.
+It also includes an in-app update button scaffold powered by `expo-updates`.
+
 ## Run locally
 
 1. Install dependencies with `npm install`
 2. Start the app with `npm run start`
 3. Open on iOS Simulator, Android Emulator, or Expo Go
+
+## In-app updates
+
+The app now includes a `Check for updates` button in the home hero area.
+
+Notes:
+
+- It works only when OTA updates are configured for a non-development build
+- In debug/development mode it will show a graceful unavailable message
+- The current UI and logic are ready, but full OTA rollout still needs Expo update channel configuration
 
 ## GitHub build outputs
 

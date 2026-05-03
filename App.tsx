@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -9,15 +10,8 @@ import {
   View
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-
-type TabKey = "today" | "planner" | "outings" | "family";
-
-type TodayCard = {
-  eyebrow: string;
-  title: string;
-  description: string;
-  tone: "urgent" | "calm" | "info";
-};
+import * as Updates from "expo-updates";
+import { copyByLocale, detectInitialLocale, type Locale, type TabKey } from "./src/i18n";
 
 const palette = {
   page: "#f6efe7",
@@ -35,93 +29,64 @@ const palette = {
   cream: "#f4d9bb"
 };
 
-const todayCards: TodayCard[] = [
-  {
-    eyebrow: "This morning",
-    title: "6-month vaccine visit tomorrow",
-    description: "Pack the immunization card, spare outfit, and bottle before 9 PM tonight.",
-    tone: "urgent"
-  },
-  {
-    eyebrow: "Age signal",
-    title: "Solid food week starts now",
-    description: "Focus on one iron-rich food this week and log reactions for clarity, not perfection.",
-    tone: "calm"
-  },
-  {
-    eyebrow: "Weather-aware",
-    title: "Windy afternoon stroller plan",
-    description: "Use one extra light layer and keep the outing under 45 minutes after the appointment.",
-    tone: "info"
-  }
-];
-
-const weeklyPlan = [
-  {
-    day: "Mon",
-    title: "Pediatrician prep",
-    detail: "Confirm time, refill wipes pouch, and add questions about rash."
-  },
-  {
-    day: "Wed",
-    title: "Family sync",
-    detail: "Grandma handles pickup kit, dad reviews bedtime supplies."
-  },
-  {
-    day: "Fri",
-    title: "Feeding checkpoint",
-    detail: "Review first-food notes and generate next-week shopping list."
-  }
-];
-
-const outingChecklist = [
-  "Bottle or feeding backup",
-  "Changing pouch",
-  "One warm layer for transit",
-  "Clinic card and insurance note",
-  "Comfort toy for waiting room"
-];
-
-const familyFeed = [
-  {
-    role: "Mom",
-    task: "Tracks feeding responses",
-    status: "In progress"
-  },
-  {
-    role: "Dad",
-    task: "Owns tomorrow's appointment bag",
-    status: "Ready"
-  },
-  {
-    role: "Grandma",
-    task: "Afternoon walk backup",
-    status: "Needs update"
-  }
-];
-
-const tabLabels: { key: TabKey; label: string }[] = [
-  { key: "today", label: "Today" },
-  { key: "planner", label: "Planner" },
-  { key: "outings", label: "Outings" },
-  { key: "family", label: "Family" }
-];
-
 export default function App() {
+  const [locale, setLocale] = useState<Locale>(detectInitialLocale);
   const [activeTab, setActiveTab] = useState<TabKey>("today");
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState<
+    "idle" | "checking" | "downloading" | "applying" | "unavailableDev" | "unavailableConfig" | "upToDate" | "readyToReload" | "failed"
+  >("idle");
+  const copy = copyByLocale[locale];
 
   const activeHeadline = useMemo(() => {
-    switch (activeTab) {
-      case "today":
-        return "What matters now";
-      case "planner":
-        return "This week's rhythm";
-      case "outings":
-        return "Leave home with less chaos";
-      case "family":
-        return "Keep every caregiver aligned";
+    return copy.activeHeadline[activeTab];
+  }, [activeTab, copy]);
+
+  const tabLabels: { key: TabKey; label: string }[] = [
+    { key: "today", label: copy.tabs.today },
+    { key: "planner", label: copy.tabs.planner },
+    { key: "outings", label: copy.tabs.outings },
+    { key: "family", label: copy.tabs.family }
+  ];
+
+  async function handleCheckForUpdates() {
+    if (isUpdating) {
+      return;
     }
-  }, [activeTab]);
+
+    if (__DEV__) {
+      setUpdateStatus("unavailableDev");
+      return;
+    }
+
+    if (!Updates.isEnabled) {
+      setUpdateStatus("unavailableConfig");
+      return;
+    }
+
+    try {
+      setIsUpdating(true);
+      setUpdateStatus("checking");
+
+      const result = await Updates.checkForUpdateAsync();
+
+      if (!result.isAvailable) {
+        setUpdateStatus("upToDate");
+        return;
+      }
+
+      setUpdateStatus("downloading");
+      await Updates.fetchUpdateAsync();
+
+      setUpdateStatus("readyToReload");
+      setUpdateStatus("applying");
+      await Updates.reloadAsync();
+    } catch {
+      setUpdateStatus("failed");
+    } finally {
+      setIsUpdating(false);
+    }
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -133,22 +98,55 @@ export default function App() {
           end={{ x: 1, y: 1 }}
           style={styles.hero}
         >
-          <View style={styles.heroBadge}>
-            <Text style={styles.heroBadgeText}>Baby Weekly Companion</Text>
+          <View style={styles.heroTopRow}>
+            <View style={styles.heroBadge}>
+              <Text style={styles.heroBadgeText}>{copy.heroBadge}</Text>
+            </View>
+            <View style={styles.localeSwitcher}>
+              <Text style={styles.localeLabel}>{copy.languageLabel}</Text>
+              <View style={styles.localeOptions}>
+                {(Object.keys(copy.languageOptions) as Locale[]).map((option) => {
+                  const active = option === locale;
+                  return (
+                    <TouchableOpacity
+                      key={option}
+                      onPress={() => setLocale(option)}
+                      style={[styles.localePill, active && styles.localePillActive]}
+                    >
+                      <Text style={[styles.localePillText, active && styles.localePillTextActive]}>
+                        {copy.languageOptions[option]}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
           </View>
-          <Text style={styles.heroTitle}>A proactive baby planning app for new parents.</Text>
-          <Text style={styles.heroCopy}>
-            Weekly priorities, appointment prep, outing clarity, and family coordination in one calm mobile flow.
-          </Text>
+          <Text style={styles.heroTitle}>{copy.heroTitle}</Text>
+          <Text style={styles.heroCopy}>{copy.heroCopy}</Text>
           <View style={styles.snapshotRow}>
-            <Metric value="3" label="priority actions" />
-            <Metric value="1" label="upcoming visit" />
-            <Metric value="4" label="caregivers synced" />
+            {copy.metrics.map((metric) => (
+              <Metric key={metric.label} value={metric.value} label={metric.label} />
+            ))}
+          </View>
+          <View style={styles.updateCard}>
+            <TouchableOpacity
+              onPress={handleCheckForUpdates}
+              style={[styles.updateButton, isUpdating && styles.updateButtonDisabled]}
+              disabled={isUpdating}
+            >
+              {isUpdating ? (
+                <ActivityIndicator color="#fffaf4" size="small" />
+              ) : (
+                <Text style={styles.updateButtonText}>{copy.update.button}</Text>
+              )}
+            </TouchableOpacity>
+            <Text style={styles.updateHint}>{copy.update[updateStatus]}</Text>
           </View>
         </LinearGradient>
 
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionEyebrow}>Agent view</Text>
+          <Text style={styles.sectionEyebrow}>{copy.sectionEyebrow}</Text>
           <Text style={styles.sectionTitle}>{activeHeadline}</Text>
         </View>
 
@@ -167,26 +165,25 @@ export default function App() {
           })}
         </View>
 
-        {activeTab === "today" && <TodayTab />}
-        {activeTab === "planner" && <PlannerTab />}
-        {activeTab === "outings" && <OutingsTab />}
-        {activeTab === "family" && <FamilyTab />}
+        {activeTab === "today" && <TodayTab locale={locale} />}
+        {activeTab === "planner" && <PlannerTab locale={locale} />}
+        {activeTab === "outings" && <OutingsTab locale={locale} />}
+        {activeTab === "family" && <FamilyTab locale={locale} />}
 
         <View style={styles.footerCard}>
-          <Text style={styles.footerTitle}>Product guardrails</Text>
-          <Text style={styles.footerCopy}>
-            This app helps parents organize next actions. It does not replace pediatricians or provide medical diagnosis.
-          </Text>
+          <Text style={styles.footerTitle}>{copy.footerTitle}</Text>
+          <Text style={styles.footerCopy}>{copy.footerCopy}</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function TodayTab() {
+function TodayTab({ locale }: { locale: Locale }) {
+  const copy = copyByLocale[locale];
   return (
     <View style={styles.stack}>
-      {todayCards.map((card) => (
+      {copy.todayCards.map((card) => (
         <View key={card.title} style={[styles.infoCard, toneStyle[card.tone]]}>
           <Text style={styles.cardEyebrow}>{card.eyebrow}</Text>
           <Text style={styles.cardTitle}>{card.title}</Text>
@@ -197,12 +194,13 @@ function TodayTab() {
   );
 }
 
-function PlannerTab() {
+function PlannerTab({ locale }: { locale: Locale }) {
+  const copy = copyByLocale[locale];
   return (
     <View style={styles.stack}>
       <View style={styles.panel}>
-        <Text style={styles.panelTitle}>Weekly plan</Text>
-        {weeklyPlan.map((item) => (
+        <Text style={styles.panelTitle}>{copy.weeklyPlanTitle}</Text>
+        {copy.weeklyPlan.map((item) => (
           <View key={item.day} style={styles.timelineRow}>
             <Text style={styles.timelineDay}>{item.day}</Text>
             <View style={styles.timelineBody}>
@@ -213,27 +211,24 @@ function PlannerTab() {
         ))}
       </View>
       <View style={styles.highlightStrip}>
-        <Text style={styles.highlightText}>
-          Next best action: generate a Friday summary for both parents after the feeding checkpoint.
-        </Text>
+        <Text style={styles.highlightText}>{copy.weeklyNextAction}</Text>
       </View>
     </View>
   );
 }
 
-function OutingsTab() {
+function OutingsTab({ locale }: { locale: Locale }) {
+  const copy = copyByLocale[locale];
   return (
     <View style={styles.stack}>
       <View style={styles.weatherCard}>
-        <Text style={styles.cardEyebrow}>Context-aware outing guidance</Text>
-        <Text style={styles.cardTitle}>59F, breezy, clinic visit at 3:30 PM</Text>
-        <Text style={styles.cardCopy}>
-          Keep the core warm, avoid overdressing, and optimize for a smooth wait-room handoff.
-        </Text>
+        <Text style={styles.cardEyebrow}>{copy.outingEyebrow}</Text>
+        <Text style={styles.cardTitle}>{copy.outingTitle}</Text>
+        <Text style={styles.cardCopy}>{copy.outingCopy}</Text>
       </View>
       <View style={styles.panel}>
-        <Text style={styles.panelTitle}>Pack list</Text>
-        {outingChecklist.map((item) => (
+        <Text style={styles.panelTitle}>{copy.packListTitle}</Text>
+        {copy.outingChecklist.map((item) => (
           <View key={item} style={styles.checkRow}>
             <View style={styles.checkDot} />
             <Text style={styles.checkText}>{item}</Text>
@@ -244,12 +239,13 @@ function OutingsTab() {
   );
 }
 
-function FamilyTab() {
+function FamilyTab({ locale }: { locale: Locale }) {
+  const copy = copyByLocale[locale];
   return (
     <View style={styles.stack}>
       <View style={styles.panel}>
-        <Text style={styles.panelTitle}>Caregiver coordination</Text>
-        {familyFeed.map((item) => (
+        <Text style={styles.panelTitle}>{copy.familyTitle}</Text>
+        {copy.familyFeed.map((item) => (
           <View key={item.role} style={styles.familyRow}>
             <View>
               <Text style={styles.familyRole}>{item.role}</Text>
@@ -262,9 +258,7 @@ function FamilyTab() {
         ))}
       </View>
       <View style={styles.familyNote}>
-        <Text style={styles.familyNoteText}>
-          Shared reminders and handoffs are where the family plan becomes subscription-worthy.
-        </Text>
+        <Text style={styles.familyNoteText}>{copy.familyNote}</Text>
       </View>
     </View>
   );
@@ -315,6 +309,12 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     gap: 14
   },
+  heroTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 12
+  },
   heroBadge: {
     alignSelf: "flex-start",
     backgroundColor: "rgba(255,250,244,0.9)",
@@ -331,6 +331,41 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     textTransform: "uppercase"
   },
+  localeSwitcher: {
+    alignItems: "flex-end",
+    gap: 6
+  },
+  localeLabel: {
+    color: palette.muted,
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.4
+  },
+  localeOptions: {
+    flexDirection: "row",
+    gap: 8
+  },
+  localePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(23,33,38,0.12)",
+    backgroundColor: "rgba(255,255,255,0.5)"
+  },
+  localePillActive: {
+    backgroundColor: palette.ink,
+    borderColor: palette.ink
+  },
+  localePillText: {
+    color: palette.ink,
+    fontSize: 12,
+    fontWeight: "700"
+  },
+  localePillTextActive: {
+    color: "#fffaf4"
+  },
   heroTitle: {
     color: palette.ink,
     fontSize: 30,
@@ -341,6 +376,34 @@ const styles = StyleSheet.create({
     color: palette.muted,
     fontSize: 15,
     lineHeight: 23
+  },
+  updateCard: {
+    gap: 10,
+    marginTop: 4
+  },
+  updateButton: {
+    alignSelf: "flex-start",
+    minWidth: 158,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
+    backgroundColor: palette.accentDeep,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  updateButtonDisabled: {
+    opacity: 0.82
+  },
+  updateButtonText: {
+    color: "#fffaf4",
+    fontSize: 14,
+    fontWeight: "800"
+  },
+  updateHint: {
+    color: palette.muted,
+    fontSize: 13,
+    lineHeight: 20,
+    maxWidth: 320
   },
   snapshotRow: {
     flexDirection: "row",
