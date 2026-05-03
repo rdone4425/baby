@@ -22,10 +22,18 @@ This app is intentionally not a generic tracker or chat bot. The first version i
 This repository supports two Android build paths:
 
 - `android-debug`: GitHub Actions builds a local debug APK artifact
+- `android-release-unsigned`: GitHub Actions builds unsigned release APK/AAB artifacts without EAS
 - `eas-preview-android`: GitHub Actions triggers an EAS preview APK build
 - `eas-production-android`: GitHub Actions triggers an EAS production AAB build
 
 To use the EAS workflows, add an `EXPO_TOKEN` repository secret in GitHub Actions settings.
+
+### Which workflow to use
+
+- Want something installable fast for testing: `android-debug`
+- Want release-shaped artifacts without Expo account setup: `android-release-unsigned`
+- Want managed Expo cloud preview builds: `eas-preview-android`
+- Want production store bundle flow: `eas-production-android`
 
 ## MVP direction
 
